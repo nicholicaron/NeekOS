@@ -38,7 +38,7 @@ pub extern "C" fn _start() -> ! {
 
     println!("It did not crash!");
 
-    loop{}
+    NeekOS::hlt_loop(); // wait for interrupts, sleep in the meantime
 }
 
 // This diverging function is called on panic.
@@ -46,7 +46,7 @@ pub extern "C" fn _start() -> ! {
 #[panic_handler]
 fn panic(info: &PanicInfo) -> ! {
     println!("{}", info);
-    loop {}
+    NeekOS::hlt_loop();
 }
 
 /// This function is called on panic (in test mode)

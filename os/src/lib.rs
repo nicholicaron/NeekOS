@@ -12,6 +12,30 @@ pub mod vga_buffer;
 pub mod interrupts;
 pub mod gdt;
 
+/// Overwrite entry point for `cargo test`
+#[cfg(test)]
+#[no_mangle]
+pub extern "C" fn _start() -> ! { // linker looks for a function named '_start' by default
+    init(); // Initialize Interrupt Descriptor Table
+    test_main();
+    hlt_loop();
+}
+
+/// This diverging function is called on panic (in test mode).
+#[cfg(test)]
+#[panic_handler]
+fn panic(info: &PanicInfo) -> ! {
+    test_panic_handler(info)
+}
+
+/// This diverging function handles panicked tests and outputs relevant info to serial
+pub fn test_panic_handler(info: &PanicInfo) -> ! {
+    serial_println!("[failed]\n");
+    serial_println!("Error: {}\n", info);
+    exit_qemu(QemuExitCode::Failed);
+    hlt_loop();
+}
+
 pub trait Testable {
     fn run(&self) -> ();
 }
@@ -37,29 +61,7 @@ pub fn test_runner(tests: &[&dyn Testable]) {
     exit_qemu(QemuExitCode::Success);
 }
 
-/// This diverging function handles panicked tests and outputs relevant info to serial
-pub fn test_panic_handler(info: &PanicInfo) -> ! {
-    serial_println!("[failed]\n");
-    serial_println!("Error: {}\n", info);
-    exit_qemu(QemuExitCode::Failed);
-    loop {}
-}
 
-/// Overwrite entry point for `cargo test`
-#[cfg(test)]
-#[no_mangle]
-pub extern "C" fn _start() -> ! { // linker looks for a function named '_start' by default
-    init(); // Initialize Interrupt Descriptor Table
-    test_main();
-    loop {}
-}
-
-/// This diverging function is called on panic (in test mode).
-#[cfg(test)]
-#[panic_handler]
-fn panic(info: &PanicInfo) -> ! {
-    test_panic_handler(info)
-}
 
 
 
@@ -81,8 +83,21 @@ pub fn exit_qemu(exit_code: QemuExitCode) {
     }
 }
 
-/// Initialize Interrupt Descriptor Table
 pub fn init() {
+    // Initialize Global Descriptor Table
     gdt::init();
+    // Initialize Interrupt Descriptor Table
     interrupts::init_idt();
+    // Initialize Programmable Interrupt Controller (PIC8259)
+    unsafe {interrupts::PICS.lock().initialize()};
+    // Tell the CPU to listen to the interrupt controller
+    x86_64::instructions::interrupts::enable();
+}
+
+// Allow CPU to enter sleep state (halt) until the next interrupt arrives
+// A more energy efficient way to wait for user input
+pub fn hlt_loop() -> ! {
+    loop {
+        x86_64::instructions::hlt();
+    }
 }
