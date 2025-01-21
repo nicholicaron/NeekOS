@@ -3,11 +3,14 @@
 #![feature(custom_test_frameworks)]
 #![test_runner(crate::test_runner)]
 #![reexport_test_harness_main = "test_main"]
+#![feature(abi_x86_interrupt)]
 
 use core::panic::PanicInfo;
 
 pub mod serial;
 pub mod vga_buffer;
+pub mod interrupts;
+pub mod gdt;
 
 pub trait Testable {
     fn run(&self) -> ();
@@ -46,6 +49,7 @@ pub fn test_panic_handler(info: &PanicInfo) -> ! {
 #[cfg(test)]
 #[no_mangle]
 pub extern "C" fn _start() -> ! { // linker looks for a function named '_start' by default
+    init(); // Initialize Interrupt Descriptor Table
     test_main();
     loop {}
 }
@@ -75,4 +79,10 @@ pub fn exit_qemu(exit_code: QemuExitCode) {
                                       // because we specified the iosize of the isa-debug-exit
                                       // device to be 4 bytes
     }
+}
+
+/// Initialize Interrupt Descriptor Table
+pub fn init() {
+    gdt::init();
+    interrupts::init_idt();
 }

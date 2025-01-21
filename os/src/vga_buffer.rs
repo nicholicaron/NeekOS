@@ -3,6 +3,8 @@ use core::fmt;
 use lazy_static::lazy_static;
 use spin::Mutex;
 
+// This file specifies how to print to console using the VGA Buffer
+
 
 // Defining print macros using their std implementations as a reference
 #[macro_export]
