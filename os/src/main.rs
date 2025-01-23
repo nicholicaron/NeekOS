@@ -6,12 +6,15 @@
 
 use core::panic::PanicInfo;
 use NeekOS::println;
+use bootloader::{BootInfo, entry_point};
+
+entry_point!(kernel_main);
 
 // Overwrite the entry point chain
-#[no_mangle] // Tell Rustc not to mangle the name of our start fn
-pub extern "C" fn _start() -> ! {
-    // this function is the entry point, since the linker looks for a function 
-    // named '_start' by default
+fn kernel_main(boot_info: &'static BootInfo) -> ! {
+    use NeekOS::memory;
+    use x86_64::{structures::paging::Page, VirtAddr};
+    use NeekOS::memory::BootInfoFrameAllocator;
     
     println!("Hello World{}", "!");
 
@@ -32,6 +35,41 @@ pub extern "C" fn _start() -> ! {
     //    stack_overflow() // for each recursion, the return address is pushed
     //}
     //stack_overflow();
+
+    // Demonstrates how to translate virtual addresses to physical addresses
+    //let phys_mem_offset = VirtAddr::new(boot_info.physical_memory_offset);
+    // initialize a mapper
+    //let mapper = unsafe {memory::init(phys_mem_offset)};
+
+    //let addresses = [
+        // the identiry-mapped vga buffer page
+        //0xb8000,
+        // some code page
+        //0x201008,
+        // some stack page
+        //0x0100_0020_1a10,
+        // virtual address mapped to physical address 0
+        //boot_info.physical_memory_offset,
+    //];
+
+    //for &address in &addresses {
+        //let virt = VirtAddr::new(address);
+        //let phys = mapper.translate_addr(virt);
+        //println!("{:?} -> {:?}", virt, phys);
+    //}
+
+    // Create a mapping to an unused page
+    let phys_mem_offset = VirtAddr::new(boot_info.physical_memory_offset);
+    let mut mapper = unsafe {memory::init(phys_mem_offset)};
+    let mut frame_allocator = unsafe{
+        BootInfoFrameAllocator::init(&boot_info.memory_map)
+    };
+
+    let page = Page::containing_address(VirtAddr::new(0));
+    memory::create_example_mapping(page, &mut mapper, &mut frame_allocator);
+    // write the string `New!` to the screen through the new mapping
+    let page_ptr: *mut u64 = page.start_address().as_mut_ptr();
+    unsafe {page_ptr.offset(400).write_volatile(0x_f021_f077_f065_f04e)};
 
     #[cfg(test)]
     test_main();

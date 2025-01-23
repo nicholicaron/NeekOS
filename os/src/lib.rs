@@ -7,15 +7,18 @@
 
 use core::panic::PanicInfo;
 
+#[cfg(test)]
+use bootloader::{entry_point, BootInfo};
+
 pub mod serial;
 pub mod vga_buffer;
 pub mod interrupts;
 pub mod gdt;
+pub mod memory;
 
 /// Overwrite entry point for `cargo test`
 #[cfg(test)]
-#[no_mangle]
-pub extern "C" fn _start() -> ! { // linker looks for a function named '_start' by default
+fn test_kernel_main(_boot_info: &'static BootInfo) -> ! {
     init(); // Initialize Interrupt Descriptor Table
     test_main();
     hlt_loop();

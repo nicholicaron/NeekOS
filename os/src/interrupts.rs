@@ -1,9 +1,10 @@
 use x86_64::structures::idt::{InterruptDescriptorTable,InterruptStackFrame};
 use crate::{println,print};
 use lazy_static::lazy_static;
-use crate::gdt;
+use crate::{gdt,hlt_loop};
 use pic8259::ChainedPics;
 use spin;
+use x86_64::structures::idt::PageFaultErrorCode;
 
 // This file defines how the OS should handle various interrupts
 // Note: Hardware Programmable Interrupt Controller (PIC) based in Intel 8259
@@ -33,6 +34,7 @@ lazy_static! {
         }
         idt[InterruptIndex::Timer.as_usize()].set_handler_fn(timer_interrupt_handler);
         idt[InterruptIndex::Keyboard.as_usize()].set_handler_fn(keyboard_interrupt_handler);
+        idt.page_fault.set_handler_fn(page_fault_handler);
         idt
     };
 }
@@ -110,7 +112,7 @@ extern "x86-interrupt" fn keyboard_interrupt_handler(_stack_frame: InterruptStac
 
     if let Ok(Some(key_event)) = keyboard.add_byte(scancode) { // add_byte translates the scancode
                                                                // into an Option<KeyEvent>
-        if let Some(key) = keyboard.process.keyevent(key_event) { // Translate Key event to a
+        if let Some(key) = keyboard.process_keyevent(key_event) { // Translate Key event to a
                                                                   // character if possible
             match key {
                 DecodedKey::Unicode(character) => print!("{}", character),
@@ -122,4 +124,19 @@ extern "x86-interrupt" fn keyboard_interrupt_handler(_stack_frame: InterruptStac
     unsafe {
         PICS.lock().notify_end_of_interrupt(InterruptIndex::Keyboard.as_u8());
     }
+}
+
+extern "x86-interrupt" fn page_fault_handler(
+    stack_frame: InterruptStackFrame,
+    error_code: PageFaultErrorCode,
+) {
+    use x86_64::registers::control::Cr2;
+    println!("EXCEPTION: PAGE FAULT");
+    println!("Accessed Address: {:?}", Cr2::read()); // Cr2 register automatically set by CPU on
+                                                     // page fault, contains accessed virtual
+                                                     // address that caused the page fault
+    println!("Error Code: {:?}", error_code); // Provides more info about the type of memory access
+                                              // that caused the page fault (e.g. read or write)
+    println!("{:#?}", stack_frame);
+    hlt_loop();
 }
