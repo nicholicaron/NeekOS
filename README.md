@@ -12,7 +12,7 @@
 <br />
 <div align="center">
   <a href="https://github.com/">
-    <img src="images/logo.png" alt="Logo" width="240" height="240">
+    <img src="images/logo.jpg" alt="Logo" width="240" height="240">
   </a>
 
   <h3 align="center">NeekOS</h3>
