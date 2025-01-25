@@ -19,11 +19,10 @@
     <img src="images/logo.png" alt="Logo" width="240" height="240">
   </a>
 
-  <h3 align="center">Best-README-Template</h3>
+  <h3 align="center">NeekOS</h3>
 
   <p align="center">
     This project is my attempt to learn about Operating Systems by implementing one. 
-
     <br />
     <a href="https://github.com/"><strong>Explore the docs »</strong></a>
     <br />
