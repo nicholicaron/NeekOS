@@ -1,6 +1,8 @@
 use alloc::alloc::{GlobalAlloc, Layout};
 use core::ptr::null_mut;
 use bump::BumpAllocator;
+use linked_list::LinkedListAllocator;
+use fixed_size_block::FixedSizeBlockAllocator;
 use x86_64::{
     structures::paging::{
         mapper::MapToError, FrameAllocator, Mapper, Page, PageTableFlags, Size4KiB,
@@ -15,10 +17,21 @@ pub const HEAP_SIZE: usize = 100 * 1024; // 100KiB
 
 pub mod bump;
 pub mod linked_list;
+pub mod fixed_size_block;
 
 #[global_allocator]
-//static ALLOCATOR: LockedHeap = LockedHeap::empty(); // Use allocator from linked_list_allocator
-static ALLOCATOR: Locked<BumpAllocator> = Locked::new(BumpAllocator::new());
+// Use allocator from linked_list_allocator crate
+//static ALLOCATOR: LockedHeap = LockedHeap::empty(); 
+//
+// Use bump allocator
+//static ALLOCATOR: Locked<BumpAllocator> = Locked::new(BumpAllocator::new());
+//
+//Use LinkedListAllocator
+//static ALLOCATOR: Locked<LinkedListAllocator> = Locked::new(LinkedListAllocator::new()); 
+//
+// Use fixed block allocator
+static ALLOCATOR: Locked<FixedSizeBlockAllocator> = Locked::new(FixedSizeBlockAllocator::new());
+
 
 /// A wrapper around spin::Mutex to permit trait implementations
 pub struct Locked<A> {
@@ -40,16 +53,19 @@ impl <A> Locked<A> {
 /// Align the given address `addr` upwards to alignment `align`
 ///
 /// Requires that `align` is a power of two
-// Note: here is a faster implementation that utilizes bit manipulation (and requires align is a
-// power of two)
-// (addr + align - 1) * !(align -1)
+///
+/// Bitmask trick: 
+/// Since align is a power of two, its binary representation has only a single bit set 
+/// (e.g. 0b000100000). This means that align - 1 has all the lower bits set (e.g. 0b00011111).
+/// By creating the bitwise NOT through the ! operator, we get a number that has all the bits 
+/// set except for the bits lower than align (e.g. 0b…111111111100000).
+/// By performing a bitwise AND on an address and !(align - 1), we align the address downwards.
+/// This works by clearing all the bits that are lower than align.
+/// Since we want to align upwards instead of downwards, we increase the addr by align - 1 before 
+/// performing the bitwise AND. This way, already aligned addresses remain the same while 
+/// non-aligned addresses are rounded to the next alignment boundary.
 fn align_up(addr: usize, align: usize) -> usize {
-    let remainder = addr % align;
-    if remainder == 0 {
-        addr // addr already aligned
-    } else {
-        addr - remainder + align
-    }
+    (addr + align - 1) * !(align - 1)
 }
 
 /// Initialize Heap
