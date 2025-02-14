@@ -146,7 +146,7 @@ git clone https://github.com/nicholicaron/NeekOS.git
 
 * Build the kernel:
 ```sh
-cargo bootimage
+cd NeekOS && cargo bootimage
 ```
 
 * Run the kernel (in Qemu)
